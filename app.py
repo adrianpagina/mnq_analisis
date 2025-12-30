@@ -2,66 +2,61 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
+import time
 
-# --- CONFIGURACIÓN PROFESIONAL ---
+# 1. CONFIGURACIÓN Y AUTO-REFRESCO (Cada 30 segundos)
 st.set_page_config(page_title="MNQ SINCRO HUB", layout="wide")
 
-# Estilo Neón para Máxima Visibilidad
+# Estilo Neón Pulido
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
     [data-testid="stMetricValue"] { 
         color: #39FF14 !important; 
-        font-size: 75px !important; 
+        font-size: 85px !important; 
         font-weight: 900 !important;
-        text-shadow: 0 0 15px #39FF14;
+        text-shadow: 0 0 20px #39FF14;
     }
-    [data-testid="stMetricLabel"] { color: #FFFFFF !important; font-size: 20px !important; }
-    .status-box { padding: 25px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 28px; }
+    .status-box { padding: 30px; border-radius: 15px; text-align: center; font-size: 30px; font-weight: 900; border: 2px solid white; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN DE DATOS SINCRO ---
 def obtener_mnq_real():
     try:
-        # Sincronizamos con el contrato de Futuros (NQ=F) para igualar a MNQ Pro
         ticker = yf.Ticker("NQ=F")
-        # Obtenemos el precio de la última transacción registrada
         precio = ticker.fast_info['last_price']
         return round(precio, 2)
     except:
-        try:
-            # Respaldo en caso de error de conexión local
-            df = yf.download("NQ=F", period="1d", interval="1m", progress=False)
-            return round(df['Close'].iloc[-1], 2)
-        except:
-            return 25714.00 # Nivel Clave de Referencia
+        return 25697.75 # Último valor conocido si falla la red
 
-# --- ESTRUCTURA DEL HUB ---
-st.title("🎯 MNQ Intelligence Hub")
-st.markdown("### Escenario de Operación Calma | Volumen: 1500")
+# --- CUERPO DE LA APP ---
+st.title("🎯 Centro de Inteligencia MNQ")
+st.subheader("Escenario de Operación Calma | Volumen: 1500")
 
-precio_sincro = obtener_mnq_real()
+# Contenedor de precio que se actualiza
+precio_actual = obtener_mnq_real()
+st.metric(label="COTIZACIÓN MNQ (SINCRO PRO)", value=f"{precio_actual} PTS")
 
-# MÉTRICA PRINCIPAL
-st.metric(label="COTIZACIÓN MNQ (SINCRO PRO)", value=f"{precio_sincro} PTS")
-
-# --- ANÁLISIS AUTOMÁTICO DE SEÑALES ---
+# --- LÓGICA DE ALERTAS PULIDA ---
 try:
-    # Leemos el registro automático de TPs del día
-    df_hist = pd.read_csv("datos_historicos.csv")
-    ultima = df_hist.iloc[-1]
+    df = pd.read_csv("datos_historicos.csv")
+    ultima = df.iloc[-1]
+    nota = ultima['nota_didactica'].upper()
     
-    # Alerta de Bull Breakout / Bull Trap
-    tipo_alerta = "🔴 RIESGO DE TRAMPA" if "trampa" in ultima['nota_didactica'].lower() else "🎯 OPORTUNIDAD TP"
-    color_box = "#dc3545" if "trampa" in ultima['nota_didactica'].lower() else "#28a745"
+    if "TRAMPA" in nota:
+        st.markdown(f'<div class="status-box" style="background-color: #FF0000; color: white;">🔴 RIESGO DE TRAMPA - PROTEJA SU CAPITAL</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="status-box" style="background-color: #39FF14; color: black;">🎯 OPORTUNIDAD TP DETECTADA</div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="status-box" style="background-color: {color_box}; color: white;">{tipo_alerta} - PROTEJA SU CAPITAL</div>', unsafe_allow_html=True)
-    
-    st.info(f"📝 **Análisis de última señal:** {ultima['nota_didactica']}")
-
+    st.markdown(f"**📝 Análisis de última señal:** {ultima['nota_didactica']}")
 except:
-    st.warning("Archivo de historial no detectado. Cargue 'datos_historicos.csv' en GitHub.")
+    st.error("Error al leer 'datos_historicos.csv'. Revisa el nombre del archivo.")
 
-# --- FOOTER ---
-st.caption(f"Sincronizado: {datetime.now().strftime('%H:%M:%S')} | Fuente: NQ Futures (Aceptable Delay 10-15m)")
+# --- FOOTER CON RELOJ VIVO ---
+hora_actual = datetime.now().strftime('%H:%M:%S')
+st.write(f"Sincronizado: **{hora_actual}** | Fuente: NQ Futures")
+
+# 2. EL PULIDO FINAL: SCRIPT DE AUTO-ACTUALIZACIÓN
+# Esto hace que la página se refresque sola cada 30 segundos
+time.sleep(30)
+st.rerun()
